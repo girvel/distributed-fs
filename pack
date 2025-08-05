@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+
+gh issue list --state all --json number,title,body,comments | \
+  jq 'map({number, title, body, comments: (.comments | map(.body))})' > github-issues-dump.json
+repomix -o ~/Desktop/repomix-output.xml
+rm github-issues-dump.json
