@@ -5,12 +5,9 @@ from starlette.responses import FileResponse
 
 app = FastAPI()
 
-# TODO env configuration
 FS_BASE_PATH = Path(".fs")
 CHUNK_SIZE = 8192
 
-# TODO consider separate route for listing a directory, return zipped directory instead
-# TODO test for paths such as ../../etc/passwd
 @app.get("/{file_path:path}")
 async def get_file(file_path: str, response: Response):
     full_path = FS_BASE_PATH / file_path
@@ -25,7 +22,6 @@ async def get_file(file_path: str, response: Response):
     return {
         "items": os.listdir(full_path),
         # TODO also return is it file/directory
-        # TODO cache response
     }
 
 @app.put("/{file_path:path}")
