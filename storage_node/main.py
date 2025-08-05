@@ -1,8 +1,7 @@
-from contextlib import asynccontextmanager, contextmanager
-from functools import lru_cache
+from contextlib import asynccontextmanager
 import os
 from pathlib import Path
-from typing import Annotated, assert_type, cast
+from typing import Annotated, cast
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile, status
 from starlette.responses import FileResponse
 from pydantic_settings import BaseSettings
@@ -16,6 +15,15 @@ def get_env(request: Request) -> Settings:
     return cast(Settings, request.state.env)
 
 Env = Annotated[Settings, Depends(get_env)]
+
+def root_in_fs(relative: str, env: Env) -> Path:
+    full_path = (env.fs_base_path / relative).resolve()
+    if not full_path.is_relative_to(env.fs_base_path.resolve()):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Storage node is forbidden to access the outside of designated root folder"
+        )
+    return full_path
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -36,7 +44,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/file/{path:path}")
 async def file_get(path: str, response: Response, env: Env):
-    full_path = env.fs_base_path / path
+    full_path = root_in_fs(path, env)
     if not full_path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File does not exist")
 
@@ -52,7 +60,7 @@ async def file_get(path: str, response: Response, env: Env):
 
 @app.put("/file/{path:path}")
 async def file_set(path: str, file: UploadFile, env: Env):
-    full_path = env.fs_base_path / path
+    full_path = root_in_fs(path, env)
     # TODO handle mkdir over an existing file
     full_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -64,10 +72,13 @@ async def file_set(path: str, file: UploadFile, env: Env):
 
 @app.delete("/file/{path:path}")
 async def file_delete(path: str, env: Env):
-    full_path = env.fs_base_path / path
+    full_path = root_in_fs(path, env)
+
+    if full_path == env.fs_base_path.resolve():
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Root folder deletion is forbidden")
 
     if not full_path.exists():
-        raise HTTPException(status.HTTP_409_CONFLICT, detail="File does not exist")
+        raise HTTPException(status.HTTP_409_CONFLICT, "File does not exist")
     
     if full_path.is_dir():
         if next(full_path.iterdir(), None):  # TODO recursive flag?
@@ -77,7 +88,4 @@ async def file_delete(path: str, env: Env):
         os.remove(full_path)
 
     return {"status": "success"}
-
-# TODO maybe moving files
-# TODO GET /stat/
 
