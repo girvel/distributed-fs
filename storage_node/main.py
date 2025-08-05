@@ -8,9 +8,9 @@ app = FastAPI()
 FS_BASE_PATH = Path(".fs")
 CHUNK_SIZE = 8192
 
-@app.get("/{file_path:path}")
-async def get_file(file_path: str, response: Response):
-    full_path = FS_BASE_PATH / file_path
+@app.get("/file/{path:path}")
+async def file_get(path: str, response: Response):
+    full_path = FS_BASE_PATH / path
     if not full_path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File does not exist")
 
@@ -24,9 +24,10 @@ async def get_file(file_path: str, response: Response):
         # TODO also return is it file/directory
     }
 
-@app.put("/{file_path:path}")
-async def set_file(file_path: str, file: UploadFile):
-    full_path = FS_BASE_PATH / file_path
+@app.put("/file/{path:path}")
+async def set_file(path: str, file: UploadFile):
+    full_path = FS_BASE_PATH / path
+    # TODO handle mkdir over an existing directory
     full_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(full_path, "wb") as buffer:
