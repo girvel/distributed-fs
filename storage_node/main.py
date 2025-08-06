@@ -46,7 +46,7 @@ app = FastAPI(lifespan=lifespan)
 async def file_get(path: str, response: Response, env: Env):
     full_path = root_in_fs(path, env)
     if not full_path.exists():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File does not exist")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File does not exist")
 
     if full_path.is_file():
         response.headers["X-Item-Type"] = "file"  # TODO document header
@@ -55,13 +55,15 @@ async def file_get(path: str, response: Response, env: Env):
     response.headers["X-Item-Type"] = "directory"
     return {
         "items": os.listdir(full_path),
-        # TODO also return is it file/directory
     }
 
 @app.put("/file/{path:path}")
 async def file_set(path: str, file: UploadFile, env: Env):
     full_path = root_in_fs(path, env)
-    # TODO handle mkdir over an existing file
+
+    if full_path.is_dir():
+        raise HTTPException(status.HTTP_409_CONFLICT, "Uploaded file exists and is a directory")
+
     full_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(full_path, "wb") as buffer:
@@ -82,7 +84,7 @@ async def file_delete(path: str, env: Env):
     
     if full_path.is_dir():
         if next(full_path.iterdir(), None):  # TODO recursive flag?
-            raise HTTPException(status.HTTP_409_CONFLICT, detail="Directory is not empty")
+            raise HTTPException(status.HTTP_409_CONFLICT, "Directory is not empty")
         os.rmdir(full_path)
     else:
         os.remove(full_path)
