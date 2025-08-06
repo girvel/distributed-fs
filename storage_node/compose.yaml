@@ -1,0 +1,12 @@
+services:
+  storage:
+    build: .
+    ports:
+    - 80:8000
+    volumes:
+    - storage_data:/var/storage
+    environment:
+      FS_BASE_PATH: /var/storage
+
+volumes:
+  storage_data:
